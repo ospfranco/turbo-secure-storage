@@ -1,13 +1,24 @@
 package com.turbosecurestorage
 
+import android.app.Activity
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.appcompat.app.AppCompatActivity
 import androidx.security.crypto.MasterKey
 import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
+import java.util.concurrent.Executor
 
 class CryptoManager(context: Context) {
     private val masterKey: MasterKey
     private val encryptedPrefs: SharedPreferences
+    private lateinit var executor: Executor
+    private lateinit var biometricPrompt: BiometricPrompt
+    private lateinit var promptInfo: BiometricPrompt.PromptInfo
+
     init {
         this.masterKey = generateMasterKey(context, false)
         this.encryptedPrefs = EncryptedSharedPreferences.create(
@@ -17,14 +28,46 @@ class CryptoManager(context: Context) {
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
+
+        executor = ContextCompat.getMainExecutor(context)
+
+        promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Input fingerprint")
+            .setSubtitle("Authenticate via fingerprint to get the password")
+            .setNegativeButtonText("Cancel")
+            .setAllowedAuthenticators(BIOMETRIC_STRONG)
+            .build()
+    }
+
+//    TODO The prompt is being shown, but the master key needs to be created with the flag
+//    So the module initialization code needs to change, so that it takes the parameter BEFORE
+//    creating the master key
+    private fun showBiometricPrompt(act: AppCompatActivity, onSuccess: () -> Unit) {
+        biometricPrompt = BiometricPrompt(act, executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    onSuccess()
+                }
+            })
+
+        biometricPrompt.authenticate(promptInfo)
     }
 
     fun save(key: String, value: String) {
         this.encryptedPrefs.edit().putString(key, value).apply()
     }
 
+    fun saveWithAuthentication(act: AppCompatActivity, key: String, value: String) {
+        showBiometricPrompt(act) { save(key, value) }
+    }
+
     fun get(key: String): String? {
         return this.encryptedPrefs.getString(key, null)
+    }
+
+    fun getWithAuthentication(act: AppCompatActivity, key: String) {
+        showBiometricPrompt(act) { get(key) }
     }
 
     fun delete(key: String) {
@@ -42,7 +85,7 @@ class CryptoManager(context: Context) {
         return MasterKey
             .Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .setUserAuthenticationRequired(requireUserAuthentication ?: false)
+            .setUserAuthenticationRequired(requireUserAuthentication ?: false, 10)
             .build()
     }
 

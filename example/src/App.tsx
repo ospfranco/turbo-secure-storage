@@ -10,6 +10,7 @@ const App = () => {
         onPress={() => {
           const { error } = TurboSecureStorage.setItem('foo', 'bar', {
             // accessibility: ACCESSIBILITY.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY,
+            biometricAuthentication: true,
           });
           // const { error } = TurboSecureStorage.setItem('foo', 'bar');
           if (error) {

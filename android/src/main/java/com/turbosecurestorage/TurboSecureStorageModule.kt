@@ -1,8 +1,9 @@
 package com.turbosecurestorage
 
+import androidx.appcompat.app.AppCompatActivity
 import com.facebook.react.bridge.*
-import android.util.Log
 import java.lang.Exception
+import android.util.Log
 
 class TurboSecureStorageModule(reactContext: ReactApplicationContext?): NativeTurboSecureStorageSpec(reactContext) {
   private val cryptoManager = CryptoManager(this.reactApplicationContext)
@@ -10,8 +11,15 @@ class TurboSecureStorageModule(reactContext: ReactApplicationContext?): NativeTu
   override fun setItem(key: String, value: String, options: ReadableMap): WritableMap {
     val obj = WritableNativeMap()
     try {
-      cryptoManager.save(key, value)
+      val requiresBiometrics = options.getBoolean("biometricAuthentication")
+      if(requiresBiometrics) {
+        val activity = this.currentActivity
+        cryptoManager.saveWithAuthentication(activity as AppCompatActivity, key, value)
+      } else {
+        cryptoManager.save(key, value)
+      }
     } catch (e: Exception) {
+      Log.w("setItem", e.localizedMessage)
       obj.putString("error", "Could not save value")
     }
     return obj
