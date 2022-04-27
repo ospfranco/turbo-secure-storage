@@ -1,6 +1,5 @@
 package com.turbosecurestorage
 
-import android.app.Activity
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.appcompat.app.AppCompatActivity
@@ -9,22 +8,36 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
 import java.util.concurrent.Executor
 
 class CryptoManager(context: Context) {
     private val masterKey: MasterKey
+    private val biometricMasterKey: MasterKey
+
     private val encryptedPrefs: SharedPreferences
+    private val biometricEncryptedPrefs: SharedPreferences
+
     private lateinit var executor: Executor
     private lateinit var biometricPrompt: BiometricPrompt
     private lateinit var promptInfo: BiometricPrompt.PromptInfo
 
     init {
-        this.masterKey = generateMasterKey(context, false)
-        this.encryptedPrefs = EncryptedSharedPreferences.create(
+        // Create a regular master key and a biometrics secured master key
+        masterKey = generateMasterKey(context, false)
+        biometricMasterKey = generateMasterKey(context, true)
+
+        // Create a regular encryptedSharedPreferences and a biometrics one
+        encryptedPrefs = EncryptedSharedPreferences.create(
             context,
             SHARED_PREFS_FILENAME,
             masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+        biometricEncryptedPrefs = EncryptedSharedPreferences.create(
+            context,
+            BIOMETRICS_SHARED_PREFS_FILENAME,
+            biometricMasterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
@@ -39,9 +52,6 @@ class CryptoManager(context: Context) {
             .build()
     }
 
-//    TODO The prompt is being shown, but the master key needs to be created with the flag
-//    So the module initialization code needs to change, so that it takes the parameter BEFORE
-//    creating the master key
     private fun showBiometricPrompt(act: AppCompatActivity, onSuccess: () -> Unit) {
         biometricPrompt = BiometricPrompt(act, executor,
             object : BiometricPrompt.AuthenticationCallback() {
@@ -54,24 +64,40 @@ class CryptoManager(context: Context) {
         biometricPrompt.authenticate(promptInfo)
     }
 
-    fun save(key: String, value: String) {
-        this.encryptedPrefs.edit().putString(key, value).apply()
+    fun set(key: String, value: String, withBiometrics: Boolean = false) {
+        if(withBiometrics) {
+            biometricEncryptedPrefs.edit().putString(key,value).apply()
+        } else {
+            encryptedPrefs.edit().putString(key, value).apply()
+        }
     }
 
-    fun saveWithAuthentication(act: AppCompatActivity, key: String, value: String) {
-        showBiometricPrompt(act) { save(key, value) }
+    fun setWithAuthentication(act: AppCompatActivity, key: String, value: String) {
+        showBiometricPrompt(act) { set(key, value, true) }
     }
 
-    fun get(key: String): String? {
-        return this.encryptedPrefs.getString(key, null)
+    fun get(key: String, withBiometrics: Boolean = false): String? {
+        return if(withBiometrics) {
+            biometricEncryptedPrefs.getString(key, null)
+        } else {
+            encryptedPrefs.getString(key, null)
+        }
     }
 
-    fun getWithAuthentication(act: AppCompatActivity, key: String) {
-        showBiometricPrompt(act) { get(key) }
+    fun getWithAuthentication(act: AppCompatActivity, key: String): String? {
+        showBiometricPrompt(act) { get(key, true) }
     }
 
-    fun delete(key: String) {
-        this.encryptedPrefs.edit().putString(key, null).apply()
+    fun delete(key: String, withBiometrics: Boolean = false) {
+        if(withBiometrics) {
+            biometricEncryptedPrefs.edit().putString(key, null).apply()
+        } else {
+            encryptedPrefs.edit().putString(key, null).apply()
+        }
+    }
+
+    fun deleteWithBiometrics(act: AppCompatActivity, key: String) {
+        showBiometricPrompt(act) { delete(key, true)}
     }
 
 //    By Choosing AES256_GCM the default settings for the key are
@@ -91,5 +117,6 @@ class CryptoManager(context: Context) {
 
     companion object {
         private const val SHARED_PREFS_FILENAME = "turboSecureStorageEncryptedSharedPrefs"
+        private const val BIOMETRICS_SHARED_PREFS_FILENAME = "turboSecureStorageBiometricsEncryptedSharedPrefs"
     }
 }

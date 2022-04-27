@@ -11,12 +11,12 @@ class TurboSecureStorageModule(reactContext: ReactApplicationContext?): NativeTu
   override fun setItem(key: String, value: String, options: ReadableMap): WritableMap {
     val obj = WritableNativeMap()
     try {
-      val requiresBiometrics = options.getBoolean("biometricAuthentication")
+      val requiresBiometrics = options.hasKey("biometricAuthentication")
       if(requiresBiometrics) {
         val activity = this.currentActivity
-        cryptoManager.saveWithAuthentication(activity as AppCompatActivity, key, value)
+        cryptoManager.setWithAuthentication(activity as AppCompatActivity, key, value)
       } else {
-        cryptoManager.save(key, value)
+        cryptoManager.set(key, value)
       }
     } catch (e: Exception) {
       Log.w("setItem", e.localizedMessage)
@@ -25,11 +25,19 @@ class TurboSecureStorageModule(reactContext: ReactApplicationContext?): NativeTu
     return obj
   }
 
-  override fun getItem(key: String): WritableMap {
+  override fun getItem(key: String, options: ReadableMap): WritableMap {
     val obj = WritableNativeMap()
     try {
-      val value = cryptoManager.get(key)
-      obj.putString("value", value)
+      val requiresBiometrics = options.hasKey("biometricAuthentication")
+      if(requiresBiometrics) {
+        val activity = this.currentActivity
+        val value = cryptoManager.getWithAuthentication(activity as AppCompatActivity, key)
+        obj.putString("value", value)
+      } else {
+        val value = cryptoManager.get(key)
+        obj.putString("value", value)
+      }
+
     } catch(e: Exception) {
       obj.putString("error", "Could not get value")
     }
