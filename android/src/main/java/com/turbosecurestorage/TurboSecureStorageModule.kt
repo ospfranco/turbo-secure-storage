@@ -14,7 +14,9 @@ class TurboSecureStorageModule(reactContext: ReactApplicationContext?): NativeTu
       val requiresBiometrics = options.hasKey("biometricAuthentication")
       if(requiresBiometrics) {
         val activity = this.currentActivity
-        cryptoManager.setWithAuthentication(activity as AppCompatActivity, key, value)
+        activity?.runOnUiThread {
+          cryptoManager.setWithAuthentication(activity as AppCompatActivity, key, value)
+        }
       } else {
         cryptoManager.set(key, value)
       }

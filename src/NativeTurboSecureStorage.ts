@@ -52,10 +52,16 @@ export interface Spec extends TurboModule {
     value: string,
     options?: {
       accessibility?: string;
+      biometricAuthentication?: boolean;
     }
   ): { error?: Object };
 
-  getItem(key: string): { error?: Object; value: string };
+  getItem(
+    key: string,
+    options?: {
+      biometricAuthentication?: boolean;
+    }
+  ): { error?: Object; value: string };
 
   deleteItem(key: string): { error?: Object };
 }

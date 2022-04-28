@@ -13,9 +13,11 @@
 </div>
 <br />
 
-# EXPERIMENTAL MODULE
+# This is an experimental module
 
-I'm still playing around with android trying to get the implementation to conform to the best security practices... if you are willing to take the challenge feel free to open a PR
+I'm not a security expert and I'm still figuring out all the quirks of security (especially on Android), use under discretion
+
+---
 
 A turbo-module to securely store data, uses Keychain on iOS and KeyStore on Android.
 

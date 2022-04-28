@@ -21,7 +21,9 @@ const App = () => {
       <Button
         title="Get Item"
         onPress={() => {
-          const { error, value } = TurboSecureStorage.getItem('foo');
+          const { error, value } = TurboSecureStorage.getItem('foo', {
+            biometricAuthentication: true,
+          });
 
           if (error) {
             Alert.alert('Could not get Item');

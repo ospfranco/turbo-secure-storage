@@ -2,6 +2,7 @@ package com.turbosecurestorage
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.security.crypto.MasterKey
 import androidx.security.crypto.EncryptedSharedPreferences
@@ -9,6 +10,7 @@ import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import java.util.concurrent.Executor
+import java.util.concurrent.Semaphore
 
 class CryptoManager(context: Context) {
     private val masterKey: MasterKey
@@ -17,9 +19,9 @@ class CryptoManager(context: Context) {
     private val encryptedPrefs: SharedPreferences
     private val biometricEncryptedPrefs: SharedPreferences
 
-    private lateinit var executor: Executor
-    private lateinit var biometricPrompt: BiometricPrompt
-    private lateinit var promptInfo: BiometricPrompt.PromptInfo
+    private var executor: Executor
+//    private lateinit var biometricPrompt: BiometricPrompt
+    private var promptInfo: BiometricPrompt.PromptInfo
 
     init {
         // Create a regular master key and a biometrics secured master key
@@ -45,15 +47,15 @@ class CryptoManager(context: Context) {
         executor = ContextCompat.getMainExecutor(context)
 
         promptInfo = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Input fingerprint")
-            .setSubtitle("Authenticate via fingerprint to get the password")
+            .setTitle("Please authenticate")
+            .setSubtitle("Biometric authentication is required to safely read/write data")
             .setNegativeButtonText("Cancel")
             .setAllowedAuthenticators(BIOMETRIC_STRONG)
             .build()
     }
 
     private fun showBiometricPrompt(act: AppCompatActivity, onSuccess: () -> Unit) {
-        biometricPrompt = BiometricPrompt(act, executor,
+        var biometricPrompt = BiometricPrompt(act, executor,
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     super.onAuthenticationSucceeded(result)
@@ -65,15 +67,32 @@ class CryptoManager(context: Context) {
     }
 
     fun set(key: String, value: String, withBiometrics: Boolean = false) {
-        if(withBiometrics) {
+        return if(withBiometrics) {
             biometricEncryptedPrefs.edit().putString(key,value).apply()
         } else {
             encryptedPrefs.edit().putString(key, value).apply()
         }
+
     }
 
     fun setWithAuthentication(act: AppCompatActivity, key: String, value: String) {
-        showBiometricPrompt(act) { set(key, value, true) }
+        Log.w(Constants.TAG, "Setting with authentication")
+        var mutex = Semaphore(0)
+        var authenticationCallback = TSSAuthenticationCallback(mutex)
+        var biometricPrompt = BiometricPrompt(act, executor, authenticationCallback)
+        Log.w(Constants.TAG, "User should be prompted")
+        biometricPrompt.authenticate(promptInfo)
+        Log.w(Constants.TAG, "After prompt")
+
+        try {
+            mutex.acquire()
+        } catch (e: Exception) {
+            Log.e("BLAH", "Interrupted mutex exception");
+        }
+
+        if(authenticationCallback.isAuthenticated) {
+            set(key, value, true)
+        }
     }
 
     fun get(key: String, withBiometrics: Boolean = false): String? {
@@ -85,7 +104,22 @@ class CryptoManager(context: Context) {
     }
 
     fun getWithAuthentication(act: AppCompatActivity, key: String): String? {
-        showBiometricPrompt(act) { get(key, true) }
+        var mutex = Semaphore(0)
+        var authenticationCallback = TSSAuthenticationCallback(mutex)
+        var biometricPrompt = BiometricPrompt(act, executor, authenticationCallback)
+        biometricPrompt.authenticate(promptInfo)
+
+        try {
+            mutex.acquire()
+        } catch (e: Exception) {
+            Log.e("BLAH", "Interrupted mutex exception");
+        }
+
+        if(authenticationCallback.isAuthenticated) {
+            return get(key, true)
+        }
+
+        return null
     }
 
     fun delete(key: String, withBiometrics: Boolean = false) {
@@ -108,6 +142,7 @@ class CryptoManager(context: Context) {
 //            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
 //            .setKeySize(DEFAULT_AES_GCM_MASTER_KEY_SIZE)
     private fun generateMasterKey(context: Context, requireUserAuthentication: Boolean?): MasterKey {
+
         return MasterKey
             .Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
