@@ -50,7 +50,7 @@ export interface Spec extends TurboModule {
   setItem(
     key: string,
     value: string,
-    options?: {
+    options: {
       accessibility?: string;
       biometricAuthentication?: boolean;
     }
@@ -58,12 +58,17 @@ export interface Spec extends TurboModule {
 
   getItem(
     key: string,
-    options?: {
+    options: {
       biometricAuthentication?: boolean;
     }
   ): { error?: Object; value: string };
 
-  deleteItem(key: string): { error?: Object };
+  deleteItem(
+    key: string,
+    options: {
+      biometricAuthentication?: boolean;
+    }
+  ): { error?: Object };
 }
 
 export default TurboModuleRegistry.get<Spec>('TurboSecureStorage')!;

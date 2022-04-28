@@ -35,7 +35,9 @@ const App = () => {
       <Button
         title="Delete item"
         onPress={() => {
-          const { error } = TurboSecureStorage.deleteItem('foo');
+          const { error } = TurboSecureStorage.deleteItem('foo', {
+            biometricAuthentication: true,
+          });
 
           if (error) {
             Alert.alert('Could not delete Item');
