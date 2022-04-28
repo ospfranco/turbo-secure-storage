@@ -8,7 +8,6 @@ buildscript {
         dependencies {
             classpath 'com.android.tools.build:gradle:7.0.4'
             classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.6.10'
-            classpath 'com.google.code.gson:gson:2.8.6'
         }
     }
 }
@@ -71,7 +70,7 @@ repositories {
 
 dependencies {
     implementation project(':ReactAndroid')
-    implementation "com.google.code.gson:gson:2.8.6"
+    implementation("androidx.security:security-crypto:1.1.0-alpha03")
 }
 
 if (isNewArchitectureEnabled()) {
