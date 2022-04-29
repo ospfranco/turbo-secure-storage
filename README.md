@@ -42,7 +42,7 @@ const { error } = TurboSecureStorage.deleteItem('foo', {
 });
 ```
 
-> Unfortunately due how codegen works, you need **always** need to pass the options object, even if it is empty
+> Unfortunately due how codegen works, you **always** need to pass the options object, even if it is empty
 
 ### iOS Accessibility
 
