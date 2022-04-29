@@ -1,12 +1,16 @@
-import React from 'react';
-import { Alert, Button, SafeAreaView } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Button, SafeAreaView, StyleSheet, Text } from 'react-native';
 import TurboSecureStorage, { ACCESSIBILITY } from 'turbo-secure-storage';
 
 const App = () => {
+  const [value, setValue] = useState<string | null>(null);
+
   return (
-    <SafeAreaView>
+    <SafeAreaView style={STYLES.container}>
+      <Text>Value is:</Text>
+      <Text style={STYLES.value}>{value ?? '?'}</Text>
       <Button
-        title="Set Item"
+        title="Set"
         onPress={() => {
           const { error } = TurboSecureStorage.setItem('foo', 'bar', {
             accessibility: ACCESSIBILITY.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY,
@@ -18,7 +22,7 @@ const App = () => {
         }}
       />
       <Button
-        title="Get Item"
+        title="Get"
         onPress={() => {
           const { error, value } = TurboSecureStorage.getItem('foo', {
             biometricAuthentication: true,
@@ -28,11 +32,11 @@ const App = () => {
             Alert.alert('Could not get Item');
           }
 
-          console.warn(`value is ${value}`);
+          setValue(value);
         }}
       />
       <Button
-        title="Delete item"
+        title="Delete"
         onPress={() => {
           const { error } = TurboSecureStorage.deleteItem('foo', {
             biometricAuthentication: true,
@@ -42,7 +46,7 @@ const App = () => {
             Alert.alert('Could not delete Item');
           }
 
-          console.warn('item deleted');
+          setValue(null);
         }}
       />
     </SafeAreaView>
@@ -50,3 +54,16 @@ const App = () => {
 };
 
 export default App;
+
+const STYLES = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  value: {
+    paddingVertical: 20,
+    fontSize: 32,
+  },
+});
