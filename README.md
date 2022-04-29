@@ -28,7 +28,8 @@ A turbo-module to securely store data, uses Keychain on iOS and KeyStore/Encrypt
 import TurboSecureStorage, { ACCESSIBILITY } from 'turbo-secure-storage';
 
 const { error } = TurboSecureStorage.setItem('foo', 'bar', {
-  accessibility: ACCESSIBILITY.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY, // the most secure option
+  accessibility: ACCESSIBILITY.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY,
+  // OR
   withBiometrics: true,
 });
 
@@ -45,17 +46,16 @@ const { error } = TurboSecureStorage.deleteItem('foo', {
 
 ### iOS Accessibility
 
-On iOS you can specify an accesibility value which allows to customize when the data is readable.
+On iOS you can specify an accesibility value which allows to customize when the data is readable. It is mutually exclusive biometrics. So pick one or the other.
 
 ## TODO
 
 - [x] Implement [official Android keystore implementation](https://github.com/android/security-samples/blob/master/BiometricLoginKotlin/app/src/main/java/com/example/biometricloginsample/CryptographyManager.kt#L78)
 - [x] Add passcode / password fallback for Android if possible
-- [ ] Add `getAllKeys`, `getAllItems` and `deleteAllItems` methods if possible
+- [ ] Add `getAllKeys`, `getAllItems` and `deleteAllItems` methods (if possible)
 - [ ] Support Secure Enclave on Apple devices
-- [ ] Revisit Android code to make sure it handles all edge cases (RTL text)
 - [ ] Create testing device list
-- [ ] Security audit by expert
+- [ ] Security audits
 
 ## About me
 
