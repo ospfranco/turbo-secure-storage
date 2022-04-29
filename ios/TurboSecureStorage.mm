@@ -1,5 +1,6 @@
 #import "TurboSecureStorage.h"
 #import <TurboSecureStorage/TurboSecureStorage.h>
+#import <LocalAuthentication/LocalAuthentication.h>
 #import <React/RCTLog.h>
 #import <Security/Security.h>
 #import <jsi/jsi.h>
@@ -20,7 +21,38 @@
     return @"TurboSecureStorage";
 }
 
-- (NSMutableDictionary *)newDefaultDictionary:(NSString *)key {
+typedef enum {
+    kBiometricsStateAvailable,
+    kBiometricsStateNotAvailable,
+    kBiometricsStateLocked
+} BiometricsState;
+
+BiometricsState getBiometricsState()
+{
+    LAContext *myContext = [[LAContext alloc] init];
+    NSError *authError = nil;
+    
+    if ([myContext canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:&authError]) {
+        return kBiometricsStateAvailable;
+    } else {
+        if (authError.code == LAErrorBiometryLockout) {
+            return kBiometricsStateLocked;
+        } else {
+            return kBiometricsStateNotAvailable;
+        }
+    }
+}
+
+SecAccessControlRef getBioSecAccessControl()
+{
+    return SecAccessControlCreateWithFlags(nil, // default allocator
+                                           kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, // Require passcode to be set on device
+                                           kSecAccessControlUserPresence, // checks for user presence with touchID, faceID or passcode :)
+                                           nil); // Error pointer
+}
+
+- (NSMutableDictionary *)newDefaultDictionary:(NSString *)key
+{
     NSMutableDictionary* queryDictionary = [[NSMutableDictionary alloc] init];
     [queryDictionary setObject:(id)kSecClassGenericPassword forKey:(id)kSecClass];
     NSData *encodedIdentifier = [key dataUsingEncoding:NSUTF8StringEncoding];
@@ -52,20 +84,23 @@
     return kSecAttrAccessibleAfterFirstUnlock;
 }
 
-- (NSDictionary *)setItem:(NSString *)key value:(NSString *)value options:(JS::NativeTurboSecureStorage::SpecSetItemOptions &)options {
-    
+- (NSDictionary *)setItem:(NSString *)key value:(NSString *)value options:(JS::NativeTurboSecureStorage::SpecSetItemOptions &)options
+{
     CFStringRef accessibility = kSecAttrAccessibleAfterFirstUnlock;
     
-    if(&options == NULL) {
-        RCTLogInfo(@"[turbo-secure-storage] options NOT passed");
-    } else {
+    if(options.accessibility()) {
         accessibility = [self getAccessibilityValue:options.accessibility()];
     }
     
-    // Delete item first
-    [self deleteItem:key];
+    bool withBiometrics = options.biometricAuthentication().value();
+    
+    [self _delete:key withBiometrics:withBiometrics];
     
     NSMutableDictionary *dict = [self newDefaultDictionary:key];
+    
+    if(options.biometricAuthentication()) {
+        [dict setObject:(id)kSecAttrAccessControl forKey:(__bridge id)getBioSecAccessControl()];
+    }
     
     NSData* valueData = [value dataUsingEncoding:NSUTF8StringEncoding];
     [dict setObject:valueData forKey:(id)kSecValueData];
@@ -76,17 +111,46 @@
     if (status == noErr) {
         return @{};
     }
-
+    
     return @{
         @"error": @"Could not save value",
     };
 }
 
-- (NSDictionary *)getItem:(NSString *)key {
+- (NSDictionary *)getItem:(NSString *)key options:(JS::NativeTurboSecureStorage::SpecGetItemOptions &)options {
     NSMutableDictionary *dict = [self newDefaultDictionary:key];
     
     [dict setObject:(id)kSecMatchLimitOne forKey:(id)kSecMatchLimit];
     [dict setObject:(id)kCFBooleanTrue forKey:(id)kSecReturnData];
+    
+    if(options.biometricAuthentication()) {
+        BiometricsState biometricsState = getBiometricsState();
+        LAContext *authContext = [[LAContext alloc] init];
+        
+        // If device has no passcode/faceID/touchID then wallet-core cannot read the value from memory
+        if(biometricsState == kBiometricsStateNotAvailable) {
+            return @{
+                @"error": @"Biometrics not available"
+            };
+        }
+        
+        if(biometricsState == kBiometricsStateLocked) {
+            
+            // TODO receiving a localized string might be necessary if this is happening on production
+            [authContext evaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics
+                        localizedReason:@"Please unlock the device to access saved wallet"
+                                  reply:^(BOOL success, NSError *error) {
+                if (!success) {
+                    // Edge case when device might locked out after too many password attempts
+                    // User has failed to authenticate, but due to this being a callback cannot interrupt upper lexical scope
+                    // We should somehow prompt/tell the user that it has failed to authenticate
+                    // and wallet could not be loaded
+                }
+            }];
+        }
+
+        [dict setObject:(id)kSecAttrAccessControl forKey:(__bridge id)getBioSecAccessControl()];
+    }
     
     CFDataRef dataResult = nil;
     OSStatus status = SecItemCopyMatching((CFDictionaryRef)dict, (CFTypeRef*) &dataResult);
@@ -105,18 +169,21 @@
     };
 }
 
-- (NSDictionary *)deleteItem:(NSString *)key {
+- (void)_delete:(NSString *)key withBiometrics:(bool)withBiometrics {
     NSMutableDictionary *dict = [self newDefaultDictionary:key];
     
-    OSStatus status = SecItemDelete((CFDictionaryRef)dict);
-    
-    if (status == noErr ) {
-        return @{};
+    if(withBiometrics) {
+        [dict setObject:(id)kSecAttrAccessControl forKey:(__bridge id)getBioSecAccessControl()];
     }
     
-    return @{
-        @"error": @"Could delete value"
-    };
+    SecItemDelete((CFDictionaryRef)dict);
+}
+
+- (NSDictionary *)deleteItem:(NSString *)key options:(JS::NativeTurboSecureStorage::SpecDeleteItemOptions &)options {
+
+    [self _delete:key withBiometrics:options.biometricAuthentication().value()];
+
+    return @{};
 }
 
 @end

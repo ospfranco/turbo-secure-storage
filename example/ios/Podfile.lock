@@ -807,7 +807,7 @@ SPEC CHECKSUMS:
   React-rncore: 6fbbec7c9933e3d187b9db3ec222a931d5dd33b9
   React-runtimeexecutor: 7285b499d0339104b2813a1f58ad1ada4adbd6c0
   ReactCommon: bf2888a826ceedf54b99ad1b6182d1bc4a8a3984
-  turbo-secure-storage: 9e6b4512e658b37bdd319c41473f5e751955da84
+  turbo-secure-storage: 3cc51e7d622ed2a054280916780e6674183f4ffb
   Yoga: 17cd9a50243093b547c1e539c749928dd68152da
 
 PODFILE CHECKSUM: 7693a900dc26cb61e4fb2eb7ee4e11b7a4fdd57e

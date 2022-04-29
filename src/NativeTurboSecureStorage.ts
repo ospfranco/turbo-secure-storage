@@ -71,4 +71,4 @@ export interface Spec extends TurboModule {
   ): { error?: Object };
 }
 
-export default TurboModuleRegistry.get<Spec>('TurboSecureStorage')!;
+export default TurboModuleRegistry.getEnforcing<Spec>('TurboSecureStorage');

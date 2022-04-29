@@ -13,13 +13,9 @@
 </div>
 <br />
 
-# This is an experimental module
-
-I'm not a security expert and I'm still figuring out all the quirks of security (especially on Android), use under discretion
-
 ---
 
-A turbo-module to securely store data, uses Keychain on iOS and KeyStore on Android.
+A turbo-module to securely store data, uses Keychain on iOS and KeyStore/EncryptedSharedPreferences on Android. It also supports Biometric authentication
 
 ## Gotcha's
 
@@ -33,23 +29,28 @@ import TurboSecureStorage, { ACCESSIBILITY } from 'turbo-secure-storage';
 
 const { error } = TurboSecureStorage.setItem('foo', 'bar', {
   accessibility: ACCESSIBILITY.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY, // the most secure option
+  withBiometrics: true,
 });
 
-const { error, value } = TurboSecureStorage.getItem('foo');
+const { error, value } = TurboSecureStorage.getItem('foo', {
+  withBiometrics: true,
+});
 
-const { error } = TurboSecureStorage.deleteItem('foo');
+const { error } = TurboSecureStorage.deleteItem('foo', {
+  withBiometrics: true,
+});
 ```
 
-> Certain parts of the implementation where taken from or inspirted by [rn-secure-storage](https://github.com/talut/rn-secure-storage), all the credit to the authors of the library.
+> Unfortunately due how codegen works, you need **always** need to pass the options object, even if it is empty
 
-### Accessibility
+### iOS Accessibility
 
-On iOS (for now, would like to implement the same on Android) you can specify an accesibility value which allows to customize the behavior of accessing the data. Some examples: always available, available only after first device unlock, available only when device is awake and unlocked and so on.
+On iOS you can specify an accesibility value which allows to customize when the data is readable.
 
 ## TODO
 
-- [ ] Implement [official Android keystore implementation](https://github.com/android/security-samples/blob/master/BiometricLoginKotlin/app/src/main/java/com/example/biometricloginsample/CryptographyManager.kt#L78)
-- [ ] Add passcode / password fallback for Android if possible
+- [x] Implement [official Android keystore implementation](https://github.com/android/security-samples/blob/master/BiometricLoginKotlin/app/src/main/java/com/example/biometricloginsample/CryptographyManager.kt#L78)
+- [x] Add passcode / password fallback for Android if possible
 - [ ] Add `getAllKeys`, `getAllItems` and `deleteAllItems` methods if possible
 - [ ] Support Secure Enclave on Apple devices
 - [ ] Revisit Android code to make sure it handles all edge cases (RTL text)
