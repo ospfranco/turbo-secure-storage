@@ -43,9 +43,9 @@ BiometricsState getBiometricsState()
     }
 }
 
-SecAccessControlRef getBioSecAccessControl()
+-(SecAccessControlRef) getBioSecAccessControl
 {
-    return SecAccessControlCreateWithFlags(nil, // default allocator
+    return SecAccessControlCreateWithFlags(kCFAllocatorDefault, // default allocator
                                            kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, // Require passcode to be set on device
                                            kSecAccessControlUserPresence, // checks for user presence with touchID, faceID or passcode :)
                                            nil); // Error pointer
@@ -88,24 +88,27 @@ SecAccessControlRef getBioSecAccessControl()
 {
     CFStringRef accessibility = kSecAttrAccessibleAfterFirstUnlock;
     
-    if(options.accessibility()) {
-        accessibility = [self getAccessibilityValue:options.accessibility()];
-    }
+     if(options.accessibility()) {
+         accessibility = [self getAccessibilityValue:options.accessibility()];
+     }
     
     bool withBiometrics = options.biometricAuthentication().value();
     
-    [self _delete:key withBiometrics:withBiometrics];
+    [self innerDelete:key withBiometrics:withBiometrics];
     
     NSMutableDictionary *dict = [self newDefaultDictionary:key];
     
-    if(options.biometricAuthentication()) {
-        [dict setObject:(id)kSecAttrAccessControl forKey:(__bridge id)getBioSecAccessControl()];
+    // kSecAttrAccessControl is mutually excluse with kSecAttrAccessible
+    // https://mobile-security.gitbook.io/mobile-security-testing-guide/ios-testing-guide/0x06f-testing-local-authentication
+    if(withBiometrics) {
+        [dict setObject:(__bridge_transfer id)[self getBioSecAccessControl] forKey:(id)kSecAttrAccessControl];
+    } else {
+        [dict setObject:(__bridge id)accessibility forKey:(id)kSecAttrAccessible];
     }
     
     NSData* valueData = [value dataUsingEncoding:NSUTF8StringEncoding];
     [dict setObject:valueData forKey:(id)kSecValueData];
-    [dict setObject:(__bridge id)accessibility forKey:(id)kSecAttrAccessible];
-    
+
     OSStatus status = SecItemAdd((CFDictionaryRef)dict, NULL);
     
     if (status == noErr) {
@@ -138,7 +141,7 @@ SecAccessControlRef getBioSecAccessControl()
             
             // TODO receiving a localized string might be necessary if this is happening on production
             [authContext evaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics
-                        localizedReason:@"Please unlock the device to access saved wallet"
+                        localizedReason:@"You need to unlock your device"
                                   reply:^(BOOL success, NSError *error) {
                 if (!success) {
                     // Edge case when device might locked out after too many password attempts
@@ -149,7 +152,7 @@ SecAccessControlRef getBioSecAccessControl()
             }];
         }
 
-        [dict setObject:(id)kSecAttrAccessControl forKey:(__bridge id)getBioSecAccessControl()];
+        [dict setObject:(__bridge id)[self getBioSecAccessControl] forKey:(id)kSecAttrAccessControl];
     }
     
     CFDataRef dataResult = nil;
@@ -169,19 +172,17 @@ SecAccessControlRef getBioSecAccessControl()
     };
 }
 
-- (void)_delete:(NSString *)key withBiometrics:(bool)withBiometrics {
+- (void)innerDelete:(NSString *)key withBiometrics:(bool)withBiometrics {
     NSMutableDictionary *dict = [self newDefaultDictionary:key];
-    
     if(withBiometrics) {
-        [dict setObject:(id)kSecAttrAccessControl forKey:(__bridge id)getBioSecAccessControl()];
+        [dict setObject:(__bridge id)[self getBioSecAccessControl] forKey:(id)kSecAttrAccessControl];
     }
-    
     SecItemDelete((CFDictionaryRef)dict);
 }
 
 - (NSDictionary *)deleteItem:(NSString *)key options:(JS::NativeTurboSecureStorage::SpecDeleteItemOptions &)options {
 
-    [self _delete:key withBiometrics:options.biometricAuthentication().value()];
+    [self innerDelete:key withBiometrics:options.biometricAuthentication().value()];
 
     return @{};
 }
