@@ -1,6 +1,6 @@
 {
   "name": "turbo-secure-storage",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "React 0.68+ Turbo Module for securely storing data using Keychain on iOS and KeyStore on Android",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
